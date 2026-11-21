@@ -20,7 +20,7 @@ The goal is not to assume that quantum models are better. It is to evaluate them
 | Training split | 914 labeled samples |
 | Validation split | 150 labeled samples (50 per class) |
 | Test split | 221 samples; labels are not available for local evaluation |
-| Quantum input | 4 PCA components encoded into 4 qubits |
+| Quantum input | 8 PCA components encoded into 4 qubits |
 | Framework | Qiskit and Qiskit Machine Learning |
 | Primary metric | Validation macro-F1 |
 
@@ -41,8 +41,8 @@ The training set is moderately imbalanced, while the official validation set is 
 The experiment follows a leakage-aware workflow:
 
 1. **Load the official splits.** The runner first attempts to use the organizer's `challenge.data.load_data()` loader. If it is unavailable, it looks for the supplied CSV split files.
-2. **Preprocess using training data only.** A `StandardScaler` and a four-component PCA transformation are fitted on the training split. The fitted transformations are then applied unchanged to validation and test data. A second scaler standardizes the PCA representation.
-3. **Encode the compact representation.** The four PCA features are mapped to bounded rotation angles using \(x_q = \pi\tanh(x)\). The same transformed four-dimensional inputs are used by the quantum models and the matched classical SVM control.
+2. **Preprocess using training data only.** A `MinMaxScaler` and a four-component PCA transformation are fitted on the training split. The fitted transformations are then applied unchanged to validation and test data. A second scaler standardizes the PCA representation.
+3. **Encode the compact representation.** The eight PCA features are mapped to bounded rotation angles using \(x_q = \pi\tanh(x)\). The same transformed four-dimensional inputs are used by the quantum models and the matched classical SVM control.
 4. **Train classical and quantum models.** The benchmark includes the organizer's RBF-SVM reference (when available), a matched RBF-SVM, a four-qubit quantum-kernel SVM, and variational quantum classifiers.
 5. **Select and evaluate using validation data.** Macro-F1 is the primary selection metric; accuracy is used as a secondary criterion. The test split is used only to generate prediction files.
 
@@ -52,9 +52,10 @@ The experiment follows a leakage-aware workflow:
 |---|---|---|
 | Organizer reference RBF-SVM | 13 Original features | The challenge's classical reference implementation, when its module is available. A clearly named RBF-SVM fallback is used if it is not. |
 | Matched classical RBF-SVM | 8 PCA features | Classical RBF kernel trained on the exact same compact, transformed inputs as the quantum models. A small grid over `C` and `gamma` is evaluated on validation data. |
+| Pauli fidelity QSVM | 8 PCA features / 4 qubits | A Pauli feature map generates quantum states; an exact statevector fidelity kernel is computed and passed to a classical SVM classifier. Feature-map repetitions and SVM `C` are compared. |
+| Z fidelity QSVM | 8 PCA features / 4 qubits | A Z feature map generates quantum states; an exact statevector fidelity kernel is computed and passed to a classical SVM classifier. Feature-map repetitions and SVM `C` are compared. |
 | ZZ fidelity QSVM | 8 PCA features / 4 qubits | A ZZ feature map generates quantum states; an exact statevector fidelity kernel is computed and passed to a classical SVM classifier. Feature-map repetitions and SVM `C` are compared. |
-| VQC / QNN with ZZ map | 8 PCA features / 4 qubits | A variational quantum classifier using a ZZ feature map, a `RealAmplitudes` ansatz, and SPSA optimization. |
-| VQC / QNN with Z map | 8 PCA features / 4 qubits | The same variational workflow with a Z feature map, enabling a feature-map comparison. |
+| VQC / QNN with Z map | 8 PCA features / 4 qubits | A variational quantum classifier using a Z feature map, a `EfficientSU2` ansatz, and SPSA optimization. |
 
 For the variational models, the computational-basis outcomes are mapped to the three crop classes using the explicit convention `outcome % 3`. This is an implementation choice and should be considered when interpreting or extending the architecture.
 
@@ -66,7 +67,6 @@ The SVM-based models use class weighting where supported by the implementation. 
 
 - **Primary metric:** macro-F1, which gives equal weight to each crop class.
 - **Additional metrics:** accuracy, macro-precision, macro-recall, per-class precision/recall/F1, and confusion matrices.
-- **Efficiency and circuit diagnostics:** fit time, prediction time, qubit count, circuit depth, two-qubit gate count, and trainable quantum parameter count where applicable.
 - **Model selection:** validation macro-F1, with accuracy as a tie-breaker.
 - **Test policy:** test labels are not accessed. The test split is inference-only, so no test accuracy or test macro-F1 is reported.
 
